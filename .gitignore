@@ -1,2 +1,4 @@
 *.zip
+data/*/*.png
+data/*/*.jpg
 __pycache__
