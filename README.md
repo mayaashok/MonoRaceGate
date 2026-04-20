@@ -2,6 +2,7 @@
 
 Drone Racing Gate Dataset with Precise Corner Labels
 
+<img width="640" height="360" alt="img_106" src="https://github.com/user-attachments/assets/f18e2583-9d08-4081-b59a-dcc20daa0f6d" />
 
 
 ## Installation
@@ -11,7 +12,7 @@ Drone Racing Gate Dataset with Precise Corner Labels
 
 ## Labels
 
- - corner.csv files contain the ```x``` and ```y``` coordinates of the inner gate corners in the sequence: Top-Left, Top-Right, Bottom-Right, Bottom-Left.
+ - ```corner.csv``` files contain the ```x``` and ```y``` coordinates of the inner gate corners in the sequence: Top-Left, Top-Right, Bottom-Right, Bottom-Left.
 
 
 
