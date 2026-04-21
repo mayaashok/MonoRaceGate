@@ -7,7 +7,18 @@ Drone Racing Gate Dataset with Precise Corner Labels
 
 ## Installation
 
-```make```
+Create and activate the conda environment:
+
+```bash
+conda env create -f environment.yml
+conda activate monoracegate
+```
+
+Then download the data and generate masks:
+
+```bash
+make
+```
 
 
 ## Labels
