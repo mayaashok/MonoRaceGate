@@ -37,6 +37,10 @@ from model import GateNet
 
 from rich.progress import Progress
 
+import matplotlib
+matplotlib.use("Agg")   # non-interactive backend, since lab machines often have no display
+import matplotlib.pyplot as plt
+
 # Weight on each output's loss, in [y0 (coarsest) ... y4 (finest)] order (opposite of paper's L_tot formula)
 WEIGHTS = [1, 1, 1, 2, 4]
 
@@ -163,6 +167,7 @@ def main():
 
     # ---- Training loop ----
     best_val_iou = 0.0
+    history = {"train_loss": [], "val_loss": [], "train_iou": [], "val_iou": []}
 
     with Progress() as progress:
         epoch_task = progress.add_task("[green] Epochs", total=args.epochs)
@@ -172,6 +177,31 @@ def main():
 
             train_loss, train_iou = run_epoch(model, train_loader, optimizer, device, train=True, progress=progress)
             val_loss, val_iou = run_epoch(model, val_loader, optimizer, device, train=False, progress=progress)
+
+            ###### Plotting ######
+            history["train_loss"].append(train_loss)
+            history["val_loss"].append(val_loss)
+            history["train_iou"].append(train_iou)
+            history["val_iou"].append(val_iou)
+
+            # Save an updated plot every epoch (cheap, and survives a crash/interrupt)
+            fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+            epochs_so_far = range(1, len(history["train_loss"]) + 1)
+
+            axes[0].plot(epochs_so_far, history["train_loss"], label="train")
+            axes[0].plot(epochs_so_far, history["val_loss"], label="val")
+            axes[0].set_xlabel("epoch"); axes[0].set_ylabel("loss"); axes[0].set_title("Loss")
+            axes[0].legend()
+
+            axes[1].plot(epochs_so_far, history["train_iou"], label="train")
+            axes[1].plot(epochs_so_far, history["val_iou"], label="val")
+            axes[1].set_xlabel("epoch"); axes[1].set_ylabel("IoU"); axes[1].set_title("IoU")
+            axes[1].legend()
+
+            fig.tight_layout()
+            fig.savefig(os.path.join(args.out_dir, "training_curves.png"))
+            plt.close(fig)   # important: prevents matplotlib from accumulating figures over 100 epochs
+            ###### Plotting ######
 
             scheduler.step()   # advance the LR schedule by one epoch
             lr_now = optimizer.param_groups[0]["lr"]
