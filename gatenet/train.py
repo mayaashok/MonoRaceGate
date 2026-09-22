@@ -129,6 +129,7 @@ def run_epoch(model, loader, optimizer, device, train, progress):
 
 
 # ----------------------------------------------------------------------------
+# Sanity check: python gatenet/train.py
 # Main training loop
 # ----------------------------------------------------------------------------
 def main():
