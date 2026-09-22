@@ -98,32 +98,29 @@ def iou_score(pred, gt, threshold=0.5, eps=1e-6):
 # ----------------------------------------------------------------------------
 # One epoch of training / validation
 # ----------------------------------------------------------------------------
-def run_epoch(model, loader, optimizer, device, train):
+def run_epoch(model, loader, optimizer, device, train, progress):
     model.train() if train else model.eval()
 
     total_loss, total_iou, n_batches = 0.0, 0.0, 0
-    
-    with Progress() as progress:
-        task = progress.add_task("Training..." if train else "Validation...",total=len(loader))
-        
-        with torch.set_grad_enabled(train):
-            for img, mask in loader:
-                img, mask = img.to(device), mask.to(device)
+    task = progress.add_task("Training..." if train else "Validation...", total=len(loader))
 
-                preds = model(img)                            # [y0..y4]
-                loss, _ = gatenet_loss(preds, mask)
+    with torch.set_grad_enabled(train):
+        for img, mask in loader:
+            img, mask = img.to(device), mask.to(device)
 
-                if train:
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+            preds = model(img)                            # [y0..y4]
+            loss, _ = gatenet_loss(preds, mask)
 
-                total_loss += loss.item()
-                total_iou += iou_score(preds[-1], mask)        # y4 is the highest-resolution, deployed output
-                n_batches += 1
+            if train:
+                optimizer.zero_grad()
+                loss.backward()
+                optimizer.step()
 
-                progress.update(task, advance=1)
-
+            total_loss += loss.item()
+            total_iou += iou_score(preds[-1], mask)        # y4 is the highest-resolution, deployed output
+            n_batches += 1
+            progress.update(task, advance=1)
+    progress.remove_task(task)
     return total_loss / n_batches, total_iou / n_batches
 
 
@@ -173,8 +170,8 @@ def main():
         for epoch in range(args.epochs):
             t0 = time.time()
 
-            train_loss, train_iou = run_epoch(model, train_loader, optimizer, device, train=True)
-            val_loss, val_iou = run_epoch(model, val_loader, optimizer, device, train=False)
+            train_loss, train_iou = run_epoch(model, train_loader, optimizer, device, train=True, progress=progress)
+            val_loss, val_iou = run_epoch(model, val_loader, optimizer, device, train=False, progress=progress)
 
             scheduler.step()   # advance the LR schedule by one epoch
             lr_now = optimizer.param_groups[0]["lr"]
