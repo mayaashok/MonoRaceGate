@@ -29,6 +29,8 @@ Choices the paper does NOT specify (my assumptions - confirm with your lab):
   - No ReLU after the transposed conv's batch norm (the paper only lists BN there).
   - The input height and width must be divisible by 16 (four max-pools).
 """
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 import torch
 import torch.nn as nn

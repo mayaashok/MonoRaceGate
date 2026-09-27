@@ -99,7 +99,7 @@ def main():
                 progress.update(task, advance=1)
 
     grid = np.vstack(rows)
-    out_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pred_check.png")
+    out_path = f"gatenet/analysis/{args.crop_mode}_pred_check.png"
     cv2.imwrite(out_path, grid)
 
     print(f"mean IoU over shown samples: {np.mean(ious):.4f}")

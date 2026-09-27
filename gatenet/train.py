@@ -136,7 +136,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--data_root", default="./data")
     ap.add_argument("--val_folders", nargs="+", default=["dhl_s1_f1", "marina_s1_f1"])
-    ap.add_argument("--crop_mode", default="resize", choices=["resize", "crop"])
+    ap.add_argument("--crop_mode", default="resize", choices=["resize", "crop", "adaptive"])
     ap.add_argument("--epochs", type=int, default=100)          # paper: 100 epochs
     ap.add_argument("--batch_size", type=int, default=16)       # paper: batch size 16
     ap.add_argument("--lr", type=float, default=1e-3)           # paper: base learning rate 1e-3

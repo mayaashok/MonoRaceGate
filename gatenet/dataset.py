@@ -30,6 +30,9 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from geometry import read_gates_csv
+from geometry import adaptive_crop_box
+
 # ----------------------------------------------------------------------------
 # Augmentation settings (my choices - the paper only names the augmentation types)
 # ----------------------------------------------------------------------------
@@ -68,6 +71,7 @@ def collect_samples(data_root, folders):
     samples, missing = [], 0
     for ds in folders:
         csv_path = os.path.join(data_root, ds, "corners.csv")
+        gates_by_image = read_gates_csv(csv_path)
         if not os.path.exists(csv_path):
             print(f"[dataset] WARNING: {csv_path} not found, skipping folder")
             continue
@@ -83,7 +87,7 @@ def collect_samples(data_root, folders):
             folder, base = os.path.split(img_path)
             mask_path = os.path.join(folder, base.replace("img_", "mask_", 1))
             if os.path.isfile(img_path) and os.path.isfile(mask_path):
-                samples.append((img_path, mask_path))
+                samples.append((img_path, mask_path, gates_by_image.get(name, [])))
             else:
                 missing += 1
 
@@ -100,7 +104,7 @@ def _to_3x3(m2x3):
     return m
 
 
-def geometric_transform(img, mask, out_size, crop_mode, train, cfg=AUG):
+def geometric_transform(img, mask, out_size, crop_mode, train, cfg=AUG, gates=None):
     """Map the source image to an out_size x out_size training window.
 
     crop_mode:
@@ -116,6 +120,9 @@ def geometric_transform(img, mask, out_size, crop_mode, train, cfg=AUG):
     # Base transform B: source image -> output window
     if crop_mode == "resize":
         B = np.array([[out_size / w, 0, 0], [0, out_size / h, 0], [0, 0, 1]], dtype=np.float64)
+    elif crop_mode == "adaptive":
+        x0, y0 = adaptive_crop_box(gates, w, h, out_size)
+        B = np.array([[1, 0, -x0], [0, 1, -y0], [0, 0, 1]], dtype=np.float64)
     else:
         if train:
             x0 = random.uniform(0, max(w - out_size, 0))
@@ -246,7 +253,7 @@ class GateDataset(Dataset):
     """
 
     def __init__(self, samples, out_size=384, train=True, crop_mode="resize", cfg=AUG):
-        assert crop_mode in ("resize", "crop")
+        assert crop_mode in ("resize", "crop", "adaptive")
         self.samples, self.out_size = samples, out_size
         self.train, self.crop_mode, self.cfg = train, crop_mode, cfg
 
@@ -254,7 +261,7 @@ class GateDataset(Dataset):
         return len(self.samples)
 
     def __getitem__(self, idx):
-        img_path, mask_path = self.samples[idx]
+        img_path, mask_path, gates = self.samples[idx]
         img = cv2.imread(img_path, cv2.IMREAD_COLOR)                # BGR uint8
         mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)          # uint8 0/255
         if img is None or mask is None:
@@ -263,7 +270,7 @@ class GateDataset(Dataset):
             mask = cv2.resize(mask, (img.shape[1], img.shape[0]), interpolation=cv2.INTER_NEAREST)
 
         # Geometric part: affine (train only) + crop/resize to 384 x 384, same for image and mask
-        img, mask = geometric_transform(img, mask, self.out_size, self.crop_mode, self.train, self.cfg)
+        img, mask = geometric_transform(img, mask, self.out_size, self.crop_mode, self.train, self.cfg, gates=gates)
 
         if self.train:
             # Lens distortion (geometric, so image and mask together)
@@ -303,7 +310,7 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--data_root", default="./data")
     ap.add_argument("--val_folders", nargs="+", default=["dhl_s1_f1", "marina_s1_f1"])
-    ap.add_argument("--crop_mode", default="resize", choices=["resize", "crop"])
+    ap.add_argument("--crop_mode", default="resize", choices=["resize", "crop", "adaptive"])
     ap.add_argument("--n", type=int, default=12)
     args = ap.parse_args()
 
@@ -313,12 +320,12 @@ if __name__ == "__main__":
     rows = []
     for _ in range(args.n):
         idx = random.randrange(len(train_ds))
-        img_path, mask_path = train_ds.samples[idx]
+        img_path, mask_path, gates = train_ds.samples[idx]
 
         # Original: same deterministic resize/crop as validation, no augmentation
         orig = cv2.imread(img_path)
         orig_mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)
-        orig, _ = geometric_transform(orig, orig_mask, 384, args.crop_mode, train=False)
+        orig, _ = geometric_transform(orig, orig_mask, 384, args.crop_mode, train=False, gates=gates)
 
         # Augmented version (random each call)
         img, mask = train_ds[idx]
@@ -328,5 +335,6 @@ if __name__ == "__main__":
         overlay[..., 2] = np.maximum(overlay[..., 2], m)
 
         rows.append(np.hstack([orig, img, cv2.cvtColor(m, cv2.COLOR_GRAY2BGR), overlay]))
-    cv2.imwrite("gatenet/aug_check.png", np.vstack(rows))
-    print("wrote aug_check.png")
+    out_path = f"gatenet/analysis/{args.crop_mode}_aug_check.png"
+    cv2.imwrite(out_path, np.vstack(rows))
+    print(f"wrote {out_path}")
