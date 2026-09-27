@@ -33,7 +33,7 @@ def main():
     ap.add_argument("--checkpoint", default="./checkpoints/best.pt")
     ap.add_argument("--data_root", default="./data")
     ap.add_argument("--val_folders", nargs="+", default=["dhl_s1_f1", "marina_s1_f1"])
-    ap.add_argument("--crop_mode", default="resize", choices=["resize", "crop"])
+    ap.add_argument("--crop_mode", default="resize", choices=["resize", "crop", "adaptive"])
     ap.add_argument("--f", type=int, default=4)
     ap.add_argument("--n", type=int, default=8)  # how many validation samples to show
     ap.add_argument("--threshold", type=float, default=0.5)
