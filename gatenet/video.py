@@ -61,23 +61,41 @@ def list_frames(folder):
     return pairs
 
 
-def list_frames_from_order_file(folder, order_path, ext=".png"):
+def list_frames_from_order_file(folder, order_path):
     """Return (img_path, mask_path) pairs in the EXACT order given by `order_path`, a text
-       file with one image number per line (e.g. "21\n17\n23\n..."), as produced by manually
+       file with one image number per line (e.g. "00013\n00015\n..."), as produced by manually
        looking through a folder's images and writing down the true viewing order.
 
-       A number whose img_* or mask_* file is missing is skipped with a printed warning,
+       Entries are matched to files by NUMERIC value, so "00013", "13", img_00013.png and
+       img_13.png all refer to the same frame - zero-padding and file extension don't matter.
+
+       A number with no matching img_* / mask_* file is skipped with a printed warning
        rather than crashing, so a hand-written list doesn't need to be perfectly clean.
     """
     with open(order_path) as f:
         numbers = [line.strip() for line in f if line.strip()]
 
-    pairs = []
-    skipped = []
+    # Index every img_* file in the folder by the integer in its filename
+    by_number = {}
+    for path in glob.glob(os.path.join(folder, "img_*")):
+        m = re.search(r"(\d+)", os.path.basename(path))
+        if m and os.path.isfile(path):
+            by_number.setdefault(int(m.group(1)), path)
+
+    pairs, skipped = [], []
     for n in numbers:
-        img_path = os.path.join(folder, f"img_{n}{ext}")
-        mask_path = os.path.join(folder, f"mask_{n}{ext}")
-        if os.path.isfile(img_path) and os.path.isfile(mask_path):
+        try:
+            key = int(n)
+        except ValueError:
+            skipped.append(n)
+            continue
+        img_path = by_number.get(key)
+        if img_path is None:
+            skipped.append(n)
+            continue
+        folder_, base = os.path.split(img_path)
+        mask_path = os.path.join(folder_, base.replace("img_", "mask_", 1))
+        if os.path.isfile(mask_path):
             pairs.append((img_path, mask_path))
         else:
             skipped.append(n)
